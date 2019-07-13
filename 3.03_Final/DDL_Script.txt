@@ -1,0 +1,182 @@
+DDL Script:
+
+CREATE TABLE Employee(
+    e_no integer PRIMARY KEY,
+    e_type varchar(50) NOT NULL,
+    e_join_date date NOT NULL,
+    e_enddate date,
+    salary integer NOT NULL,
+    e_name varchar(100) NOT NULL,
+    super_no integer,
+    lab_no integer
+);
+
+CREATE TABLE Lab(
+    Lab_no integer PRIMARY KEY,
+    name varchar(50) NOT NULL,
+    location varchar(100) NOT NULL
+);
+
+CREATE TABLE Operates(
+    e_no integer,
+    as_name varchar(100),
+    PRIMARY KEY(e_no, as_name)
+);
+
+CREATE TABLE SpaceCraft(
+    sc_name varchar(100) PRIMARY KEY,
+    payload_capacity integer NOT NULL,
+    working_status varchar(50) NOT NULL,
+    close_date date,
+    type varchar(100) NOT NULL,
+    manufacturing_date date NOT NULL,
+    launch_date date NOT NULL,
+    coordinates varchar(30) NOT NULL,
+    m_name varchar(100) NOT NULL
+);
+
+CREATE TABLE Part_of(
+    e_no integer,
+    m_name varchar(100),
+    role varchar(100) NOT NULL,
+    PRIMARY KEY(e_no, m_name)
+);
+
+CREATE TABLE Mission(
+    m_name varchar(100) PRIMARY KEY,
+    start_date date NOT NULL,
+    end_date date,
+    budget numeric(20) NOT NULL,
+    result varchar(20),
+    type varchar(100) NOT NULL
+);
+
+CREATE TABLE Launching_site(
+    coordinates varchar(30) PRIMARY KEY,
+    state varchar(100) NOT NULL,
+    site_name varchar(100) NOT NULL
+);
+
+CREATE TABLE Artificial_satellite(
+    as_name varchar(100) PRIMARY KEY,
+    cost numeric(20) NOT NULL,
+    weight numeric(20) NOT NULL,
+    expected_term_date date,
+    launch_date date,
+    type varchar(100) NOT NULL,
+    perigee numeric(50, 6),
+    p_name varchar(100) NOT NULL
+);
+
+CREATE TABLE Explore_planet(
+    t_name varchar(100),
+    m_name varchar(100),
+    p_name varchar(100),
+    PRIMARY KEY(t_name, m_name,p_name)
+);
+
+
+CREATE TABLE Natural_satellites (
+    ns_name varchar(100) primary key,
+    volume numeric(50,6) not null,
+    mass numeric(50,6) not null,
+    angular_velocity numeric(50,6) not null,
+    orbit_radius numeric(50,6) not null,
+    p_name varchar(100) not null,
+    discovery_time integer not null,
+    t_name varchar(100)
+);
+
+CREATE TABLE Planet (
+    p_name varchar(100) primary key,
+    mass numeric(50,6) not null,
+    volume numeric(50,6) not null,
+    angular_velocity numeric(50,6) not null,
+    orbit_radius numeric(50,6) not null,
+    distance_from_earth numeric(50,6) not null,
+    s_name varchar(100) not null,
+    discovery_time integer not null,
+    t_name varchar(100)
+);
+
+CREATE TABLE Star (
+    s_name varchar(100) primary key,
+    volume numeric(50,6) not null,
+    mass numeric(50,6) not null,
+    age numeric(50,6),
+    color varchar(50) not null,
+    distance_from_earth numeric(50,6) not null,
+    surface_temperature real,
+    g_name varchar(100) not null,
+    discovery_time integer not null,
+    t_name varchar(100)
+);
+
+CREATE TABLE Galaxy (
+    g_name varchar(100) primary key,
+    shape varchar(30) not null,
+    distance_from_earth numeric(50,6) not null,
+    discovery_time integer not null,
+    t_name varchar(100)
+);
+
+CREATE TABLE Telescope (
+    t_name varchar(100) primary key,
+    "cost" numeric(20) not null,
+    "type" varchar(100) not null,
+    "range" numeric(50,6) not null
+);
+
+CREATE TABLE Explore_natural_satellite (
+    t_name varchar(100),
+    m_name varchar(100),
+    ns_name varchar(100),
+    primary key(t_name,m_name,ns_name)
+);
+
+
+ALTER TABLE Employee add FOREIGN KEY (lab_no) REFERENCES Lab(Lab_no) on delete set NULL on update cascade;
+
+ALTER TABLE Employee add FOREIGN KEY (super_no) REFERENCES Employee(e_no)  on delete set NULL on update cascade;
+
+ALTER TABLE Operates add FOREIGN KEY (e_no) REFERENCES Employee(e_no) on delete cascade on update cascade;
+
+ALTER TABLE Operates add FOREIGN KEY (as_name) REFERENCES Artificial_satellite(as_name) on delete cascade on update cascade;
+
+ALTER TABLE spacecraft add FOREIGN KEY (coordinates) REFERENCES launching_site(coordinates) on delete restrict on update cascade;
+
+ALTER TABLE spacecraft add FOREIGN KEY (m_name) REFERENCES mission(m_name) on delete cascade on update cascade;
+
+ALTER TABLE part_of add FOREIGN KEY (e_no) REFERENCES Employee(e_no) on delete cascade on update cascade;
+
+ALTER TABLE part_of add FOREIGN KEY (m_name) REFERENCES mission(m_name) on delete cascade on update cascade;
+
+ALTER TABLE artificial_satellite add FOREIGN KEY (p_name) REFERENCES planet(p_name) on delete restrict on update cascade;
+
+ALTER TABLE Explore_planet add FOREIGN KEY (t_name) REFERENCES telescope(t_name) on delete restrict on update cascade;
+
+ALTER TABLE Explore_planet add FOREIGN KEY (m_name) REFERENCES mission(m_name) on delete cascade on update cascade;
+
+ALTER TABLE Explore_planet add FOREIGN KEY (p_name) REFERENCES planet(p_name) on delete restrict on update cascade;
+
+ALTER TABLE Explore_natural_satellite add FOREIGN KEY (t_name) REFERENCES telescope(t_name) on delete restrict on update cascade;
+
+ALTER TABLE Explore_natural_satellite add FOREIGN KEY (m_name) REFERENCES mission(m_name) on delete cascade on update cascade;
+
+ALTER TABLE Explore_natural_satellite add FOREIGN KEY (ns_name) REFERENCES natural_satellites(ns_name) on delete restrict on update cascade;
+
+ALTER TABLE natural_satellites add FOREIGN KEY (t_name) REFERENCES telescope(t_name) on delete restrict on update cascade;
+
+ALTER TABLE natural_satellites add FOREIGN KEY (p_name) REFERENCES planet(p_name) on delete restrict on update cascade;
+
+ALTER TABLE planet add FOREIGN KEY (s_name) REFERENCES star(s_name) on delete restrict on update cascade;
+
+ALTER TABLE planet add FOREIGN KEY (t_name) REFERENCES telescope(t_name) on delete restrict on update cascade;
+
+ALTER TABLE star add FOREIGN KEY (g_name) REFERENCES galaxy(g_name) on delete restrict on update cascade;
+
+ALTER TABLE star add FOREIGN KEY (t_name) REFERENCES telescope(t_name) on delete restrict on update cascade;
+
+ALTER TABLE galaxy add FOREIGN KEY (t_name) REFERENCES telescope(t_name) on delete restrict on update cascade;
+
+

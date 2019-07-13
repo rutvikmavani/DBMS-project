@@ -1,0 +1,391 @@
+STROED PROCEDURES:
+
+1. Return e_no of all employees who are associated with all artificial satellites of a particular planet given as function argument. 
+
+=> CREATE OR REPLACE FUNCTION num_of_employees(planet varchar) RETURNS SETOF integer AS $BODY$ 
+DECLARE 
+	cnt integer := 0;
+	r record;
+	it record;
+BEGIN
+	For r in select * from artificial_satellite where p_name = planet
+	LOOP
+		cnt := cnt + 1;
+	END LOOP;
+	
+	for it in select e_no, count(*) from artificial_satellite natural join operates where p_name = planet group by e_no
+ 	LOOP
+		if cnt = it.count then
+			RETURN NEXT it.e_no;
+		end if;
+	END LOOP;
+	RETURN;
+END $BODY$ LANGUAGE 'plpgsql';
+
+
+2. List the success rate of mission from all launching site.
+
+=> CREATE TYPE struct AS (rate real, coordinates varchar);
+
+Create or replace function compute_success_rate() returns setof struct as $BODY$ 
+DECLARE
+success real;
+failure real;
+ret real;
+togo struct;
+r varchar;
+j record;
+BEGIN
+	for r in Select distinct coordinates from spacecraft
+	LOOP
+		success := 0;
+		failure := 0;
+		for j in Select * from mission as m join spacecraft as sc on m.m_name = sc.m_name
+		LOOP
+			if j.coordinates = r then
+				if j.result = 'Success' then
+					success := success + 1;
+				end if;
+				if j.result = 'Crashed' then
+					failure := failure + 1;
+				end if;
+			end if;
+		END LOOP;
+		failure := failure + success;
+		if failure = 0 then
+			togo.rate = 0;
+			togo.coordinates = r;
+			return next togo;
+		else
+			togo.rate = (success/failure) * 100;
+			togo.coordinates = r;
+			return next togo;
+		end if;
+	END LOOP;
+END $BODY$ LANGUAGE 'plpgsql';
+
+
+
+TRIGGERS
+
+1. Trigger for proper formatting of e_name before inserting it into Employee table.
+
+=> CREATE OR REPLACE FUNCTION before_insert()
+  RETURNS trigger AS
+$$
+BEGIN
+NEW.e_name = LTRIM(NEW.e_name);
+NEW.JOB_ID = LOWER(NEW.e_name);
+RETURN NEW;
+END;
+
+$$
+LANGUAGE 'plpgsql';
+
+--Trigger
+
+CREATE TRIGGER check_val_before_ins
+  BEFORE INSERT
+  ON emp_details
+  FOR EACH ROW
+  EXECUTE PROCEDURE before_insert();
+
+
+--checking the trigger
+
+INSERT INTO Employee (e_no, e_name, e_type, salary, e_join_date, e_enddate, super_no, lab_no) VALUES (105, '  DIsHanT ', 'Technician', 476315, '2012-04-10', '2016-10-10', '15', 6);
+
+
+2. Trigger for maintaining an Employee Log
+
+--Utility table used for storing the log.
+create table employee_log(
+	username varchar(50),
+	log_time time with time zone,
+	description character varying
+)
+
+
+--Trigger function for employee log. 
+create or replace function log_trigg_func() returns trigger As $$
+begin
+IF (TG_OP = 'INSERT') THEN
+        INSERT INTO employee_log(username,
+                log_time,
+                description)
+            VALUES(user,
+                now(),
+                'New Employee added. Employee id ' || New.e_no || ', Employee Name: ' || NEW.e_name|| ', Join Date: ' || NEW.e_join_date ||', End Date: ' || NEW.e_enddate ||',  Salary: ' || NEW.salary || ', Supervisor_id ' || NEW.super_no||', Lab Number: ' || NEW.lab_no );
+        RETURN NEW;
+ ELSIF (TG_OP = 'UPDATE') THEN
+       
+        IF NEW.salary!= OLD.salary THEN
+            INSERT INTO employee_log(username,log_time,description) VALUES(user,now(), 'Salary updated. Employee id ' || New.e_no || ', Employee Name: ' || NEW.e_name|| ', Join Date: ' || NEW.e_join_date ||', End Date: ' || NEW.e_enddate ||',  Salary: ' || NEW.salary || ', Supervisor_id ' || NEW.super_no||', Lab Number: ' || NEW.lab_no );
+       	END IF;
+		 IF NEW.lab_no!= OLD.lab_no THEN
+           INSERT INTO employee_log(username,log_time,description) VALUES(user,now(),  'Lab Num updated. Employee id ' || New.e_no || ', Employee Name: ' || NEW.e_name|| ', Join Date: ' || NEW.e_join_date ||', End Date: ' || NEW.e_enddate ||',  Salary: ' || NEW.salary || ', Supervisor_id ' || NEW.super_no||', Lab Number: ' || NEW.lab_no );
+       	END IF;
+		IF NEW.super_no!=OLD.super_no THEN
+           INSERT INTO employee_log(username,log_time,description) VALUES(user,now(),  'Supervisor changed. Employee id ' || New.e_no || ', Employee Name: ' || NEW.e_name|| ', Join Date: ' || NEW.e_join_date ||', End Date: ' || NEW.e_enddate ||',  Salary: ' || NEW.salary || ', Supervisor_id ' || NEW.super_no||', Lab Number: ' || NEW.lab_no );
+       	END IF;
+	  RETURN NEW;
+	  
+	    ELSIF (TG_OP = 'DELETE') THEN
+            INSERT INTO employee_log(username,
+                log_time,
+                description)
+            VALUES(user,
+             now(),
+                ' Following Employee detail deleted.Employee id ' || OLD.e_no || ', Employee Name: ' || OLD.e_name|| ', Join Date: ' || OLD.e_join_date ||', End Date: ' || OLD.e_enddate ||',  Salary: ' || OLD.salary || ', Supervisor_id ' || OLD.super_no||', Lab Number: ' || OLD.lab_no );
+            RETURN OLD;
+
+    END IF;
+ 
+    RETURN null;
+	 END;
+	 $$
+	 language 'plpgsql';
+
+--------------------------------------------------------------
+CREATE TRIGGER add_log_trigger
+BEFORE INSERT OR UPDATE OR DELETE
+ON employee
+FOR EACH ROW
+EXECUTE PROCEDURE log_trigg_func();
+--------------------------------------------------------------
+
+--Sample Input 
+
+INSERT INTO Employee (e_no, e_name, e_type, salary, e_join_date, e_enddate, super_no, lab_no) VALUES (106, 'pramod', 'Engineer', 852014, '2005-09-18', '2016-08-14', 105, 8);
+INSERT INTO employee (e_no, e_name, e_type, salary, e_join_date, e_enddate, super_no, lab_no) VALUES (107, 'krit', 'Engineer', 952011, '2008-09-18', '2017-07-13', 105, 7);
+INSERT INTO employee (e_no, e_name, e_type, salary, e_join_date, e_enddate, super_no, lab_no) VALUES (108, 'harshit', 'Engineer', 902014, '2009-09-19', '2017-08-15', 106, 7);
+update employee SET salary=999101 where e_no=108;
+delete from employee where e_no=107;
+
+
+
+3. Trigger for constraint check on Employee Table. Employee join date must be less than employee end date.
+create or replace function constraint_checker() returns trigger As $$
+begin
+if New.e_enddate IS NOT NULL and New.e_enddate < New.e_join_date then
+raise exception 'The end date of an employee cannot be before his joining date';
+rollback transaction;
+end if; 
+return new;
+end;
+$$ 
+language 'plpgsql';
+
+CREATE TRIGGER checker_trigger
+BEFORE INSERT
+ON employee
+FOR EACH ROW
+EXECUTE PROCEDURE constraint_checker();
+
+
+4. Trigger for constraint check on Spacecraft Table on Manufacturing Date, Launch Date and End date.
+
+create or replace function spacecraft_check_trigger() returns trigger As $$
+begin
+if New.manufacturing_date>New.launch_date and New.launch_date <New.close_date and New.close_date IS NOT NULL then
+raise exception '------THE DATE INPUTS ARE INVALID-------';
+rollback transaction;
+end if;
+return NEW;
+end;
+$$
+language 'plpgsql';
+
+
+CREATE TRIGGER spacecraft_checker_trigger
+BEFORE INSERT or UPDATE
+ON spacecraft
+FOR EACH ROW
+EXECUTE PROCEDURE spacecraft_check_trigger();
+
+
+
+5. Trigger for constraint check on Mission Table. Mission start date must be before mission end date.
+
+create or replace function mission_constraint_checker() returns trigger As $$
+begin
+if New.end_date IS NOT NULL and New.end_date < New.start_date then
+raise exception 'DATE ENTRIES ARE INVALID';
+rollback transaction;
+end if; 
+return new;
+end;
+$$ 
+language 'plpgsql';
+
+CREATE TRIGGER mission_checker_trigger
+BEFORE INSERT OR UPDATE
+ON mission
+FOR EACH ROW
+EXECUTE PROCEDURE mission_constraint_checker();
+
+
+insert into Mission (m_name, result, budget, start_date, end_date, type) 
+values ('Boyager', 'Crashed', 76, '2016-03-08', '2015-03-22', 'Exploration');
+
+
+6.Trigger for validating updates. Also, maintaing a log for successfull and crashed missions.
+
+CREATE TABLE ongoing_mission_log(
+	username varchar(50),
+	log_time time with time zone,
+	description character varying
+)
+
+create or replace function mission_function2() returns trigger AS $$
+begin
+if Old.result!='Ongoing' then
+	if New.result='Crashed' and Old.result='Success' then
+	raise exception 'A successful mission cannot end up as crashed!';
+	rollback transaction;
+	
+	elsif New.result='Success' and Old.result='Crashed' then 
+	raise exception ' A Crashed mission cant be successful!';
+	rollback Transaction;
+	end if;
+return new;
+
+elsif Old.result='Ongoing' and New.result='Success' then
+	raise notice ' the given Mission details were recorded in the ongoing mission log';
+	INSERT INTO ongoing_mission_log(username,log_time,description) VALUES(user,now(),'Ongoing Mission:'||New.m_name||' concluded to be a successful mission');
+
+elsif Old.result='Ongoing' and New.result='Crashed' then 
+	raise notice ' the given Mission details were recorded in the ongoing mission log';
+	INSERT INTO ongoing_mission_log(username,log_time,description) VALUES(user,now(),'Ongoing Mission:'||New.m_name||' concluded to be an unsuccessful mission');
+
+return new;
+end if;
+return null;
+end ;
+ $$
+ language 'plpgsql';
+
+
+----------------------------
+CREATE TRIGGER mission_function2_checker
+BEFORE UPDATE
+ON mission
+FOR EACH ROW
+EXECUTE PROCEDURE mission_function2();
+
+
+--------------------------------------------------
+
+Console Application
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <libpq-fe.h>
+#include <string.h>
+
+int main() {
+
+PGconn          *conn;   
+PGresult        *res;
+int             rec_count;
+int             row;
+int             col;
+   
+conn = PQconnectdb("host=10.100.71.21 port=5432 user=201601198 password=Dvt@1999 dbname=201601198");
+
+   
+if (PQstatus(conn) == CONNECTION_BAD) {
+       
+      puts("We were unable to connect to the database");
+       
+   	 exit(0);
+}
+   
+char *string=(char *)malloc(1000*sizeof(char));
+while(1)
+{
+	res=PQexec(conn,"set search_path to \"nasav1\";");
+	printf("enter 1 for query 2 for update then enter the sql string and 3 for exit\n");
+   
+	int type;
+	scanf("%d\n",&type);
+	fflush(stdout);
+	
+	if(type==1)   
+        {    
+		scanf("%[^\n]s",string);       
+		res = PQexec(conn,string);
+
+		if (PQresultStatus(res) != PGRES_TUPLES_OK)
+		{
+			printf("%s",PQresultErrorMessage(res));
+			continue;
+		}
+       
+		rec_count = PQntuples(res);
+		printf("We received %d records.\n", rec_count);
+		puts("==========================");
+		int col_count=PQnfields(res);
+       
+		for (col=0; col<col_count; col++)
+		{
+			printf("%s\t", PQfname(res,col));
+		}
+		
+		puts("");
+
+		for (row=0; row<rec_count; row++)
+		{
+			for (col=0; col<col_count; col++)
+                {
+				printf("%s\t", PQgetvalue(res, row,col));
+                }
+           
+			puts("");
+		}
+
+		puts("==========================");
+   		}
+   		
+		else if(type==2)
+		{
+			scanf("%[^\n]s",string);
+			res = PQexec(conn,string);
+
+       		if (PQresultStatus(res) != PGRES_COMMAND_OK)
+                {
+				printf("%s",PQresultErrorMessage(res)); 
+				continue;
+                }       
+                else
+                {
+				printf("Update query executed succesfully\n");
+			}
+            }
+   		else if(type==3)
+		{
+           	break;     
+                PQclear(res);
+                PQfinish(conn);
+                return 0;
+            }
+        }
+   
+return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

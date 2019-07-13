@@ -1,0 +1,76 @@
+SQL QUERIES:
+
+
+--(1) Display name of "Visual" Telescopes which is used for discovery of at least 3 planet.
+    
+	Select te.* from telescope as te natural join (Select r2.t_name, count(r2.p_name) from (Select * from planet 
+	natural join 
+	(SELECT * from telescope as t where t.type = 'Visual') as r1) as r2 group by r2.t_name) as r3 where r3.count >= 3;
+
+--(2) Retrieve details of employees which have joined before 2000-10-10.
+
+	SELECT * FROM EMPLOYEE AS e WHERE e.e_join_date < '2000-10-10';
+
+--(3) Retrieve details of employees who are supervisors and operates at least one Artificial Satellite.
+	
+	SELECT * from employee natural join (SELECT distinct o.e_no from operates as o join employee as e on (o.e_no = e.super_no)) as r1;
+
+
+--(4) List the employee number of employees who are associated with all artificial satellites of Neptune.
+	
+	select distinct e_no from (select * from(select e_no, count(*) as cnt1 from(select * from (select * from (select cnt1 from(select count(*) as cnt1 from (select * from artificial_satellite where p_name = 'Neptune') as r1) as r2) as r3 
+	cross join
+	(select * from artificial_satellite where p_name = 'Neptune') as r4) as r5
+	natural join operates) as r6 group by e_no) as  r7
+	natural join
+	(select * from (select * from (select cnt2 from(select count(*) as cnt2 from (select * from artificial_satellite where p_name = 'Neptune') as t1) as t2) as t3 
+	cross join
+	(select * from artificial_satellite where p_name = 'Neptune') as t4) as t5
+	natural join operates) as t6) as t7 where t7.cnt1 = t7.cnt2;
+
+
+--(5) Display all planets from the database in Milky Way Galaxy.
+
+	Select p_name from (Select * from planet as p join (Select s.g_name as gp_name, s_name from star as s join galaxy as g on s.g_name = g.g_name) as r1 on p.s_name = r1.s_name) as r2 where r2.gp_name = 'MilkyWay';
+
+--(6) Display average salary of all different types of employees.
+	
+	Select e_type, avg(salary) as average from employee group by e_type; 
+
+--(7) Display name, type and discovery count of telescope "type-wise" with maximum planet discoveries.
+
+	SELECT r2.* from (SELECT t_name, "type", count(p_name) as total_disc from (SELECT * from planet natural join telescope) as r1 group by t_name, "type") as r2
+	join
+	(SELECT "type", max(r4.cnt) as mx from (SELECT t_name, "type", count(p_name) as cnt from (SELECT * from planet natural join telescope) as r3 group by t_name, "type") as r4 group by "type") as r5
+	on r2.total_disc = r5.mx;
+
+
+--(8) Display number of employees in each lab whose salary > 40k.
+	
+	Select lab_no, count(e_no) from (Select * from employee as e where e.salary > 40000) as r1 group by lab_no order by lab_no;
+
+--(9) Display all spacecrafts that were aimed for Planet Exploration type of mission.
+	
+	select sc_name from (Select *, m.type as m_type from spacecraft as s join mission as m on s.m_name = m.m_name) as r1 where r1.m_type = 'Planet Exploration';
+
+--(10) Display details of launching sites which were a part of more than 2 successful missions.
+
+	Select l.* from launching_site as l natural join (Select r2.coordinates, count(*) from (Select * from (Select * from mission as m where m.result = 'Success') as r1 
+		join spacecraft as s on r1.m_name =s.m_name) as r2 group by coordinates) as r3; 
+
+--(11) Display details of all the employees who are supervisors and have no supervisors.
+
+	select * from (select e.* from employee as e join (select distinct super_no from employee) as r1 on r1.super_no = e.e_no) as r2 where r2.super_no IS NULL;
+
+
+--(12) Display list of all planet having both natural as well as artificial satellites.
+
+	Select distinct p_name from natural_satellites as ns where ns.p_name IN (select p_name from artificial_satellite);
+
+
+--(13) List the details of employees who have worked as both Payload Specialist and Flight Engineer in some mission.
+	
+	select * from (select * from (select e_no from part_of where role = 'Flight Engineer') as r1
+	intersect
+	(select e_no from part_of where role = 'Payload Specialist')) as r2 natural join employee;
+	
